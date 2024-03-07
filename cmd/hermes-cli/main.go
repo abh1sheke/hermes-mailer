@@ -14,6 +14,21 @@
 
 package main
 
+import (
+	"fmt"
+
+	"github.com/abh1sheke/hermes-mailer/internal/cmd"
+	"os"
+)
+
 func main() {
-  println("Hello, world!")
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Fprintln(os.Stderr, "Error: ", err)
+		}
+	}()
+
+	if err := cmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
