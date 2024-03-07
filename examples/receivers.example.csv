@@ -1,0 +1,17 @@
+email,cc,bcc,variables
+john.doe@example.com,jane.doe@example.com;alice.smith@example.com,bob.johnson@example.com;charlie.brown@example.com,name=John Doe;location=New York
+jane.smith@example.com,john.doe@example.com,alice.smith@example.com;bob.johnson@example.com,name=Jane Smith;location=Los Angeles
+alice.johnson@example.com,john.doe@example.com;jane.doe@example.com,charlie.brown@example.com,name=Alice Johnson;location=Chicago
+mark@example.com,sarah@example.com;tom@example.com,john@example.com;emma@example.com,name=Mark;location=London
+sarah@example.com,tom@example.com,mark@example.com;emma@example.com,name=Sarah;location=Paris
+tom@example.com,mark@example.com;sarah@example.com,emma@example.com;john@example.com,name=Tom;location=Berlin
+emma@example.com,sarah@example.com;tom@example.com,mark@example.com;john@example.com,name=Emma;location=Tokyoalex@example.com
+brian@example.com,carol@example.com;daniel@example.com,alex@example.com;eve@example.com,name=Brian;location=Toronto
+carol@example.com,daniel@example.com;eve@example.com,alex@example.com;brian@example.com,name=Carol;location=Mumbai
+daniel@example.com,eve@example.com;alex@example.com,brian@example.com;carol@example.com,name=Daniel;location=Seoul
+eve@example.com,alex@example.com;brian@example.com,carol@example.com;daniel@example.com,name=Eve;location=Rome
+frank@example.com,grace@example.com;henry@example.com;irene@example.com,jack@example.com,name=Frank;location=Madrid
+grace@example.com,henry@example.com;irene@example.com;jack@example.com,frank@example.com,name=Grace;location=Amsterdam
+henry@example.com,irene@example.com;jack@example.com,frank@example.com;grace@example.com,name=Henry;location=Beijing
+irene@example.com,jack@example.com;frank@example.com,grace@example.com;henry@example.com,name=Irene;location=Oslo
+jack@example.com,frank@example.com;grace@example.com,henry@example.com;irene@example.com,name=Jack;location=Mexico City
