@@ -1,4 +1,4 @@
-// Copyright 2024 Abhisheke Acharya 
+// Copyright 2024 Abhisheke Acharya
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,9 +16,10 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/abh1sheke/hermes-mailer/internal/cmd"
-	"os"
+	_ "github.com/abh1sheke/hermes-mailer/internal/logger"
 )
 
 func main() {

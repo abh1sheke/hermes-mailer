@@ -16,6 +16,7 @@ package queue
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/abh1sheke/hermes-mailer/pkg/mailer"
 	"github.com/gocarina/gocsv"
+	"github.com/rs/zerolog/log"
 )
 
 type task struct {
@@ -76,6 +78,7 @@ type Queue struct {
 	workers                     uint8
 	auth                        mailer.Auth
 	failures                    []*mailer.Receiver
+	errorThreshold, errorCount  uint8
 }
 
 func (q *Queue) isTomorrow() bool {
@@ -107,48 +110,65 @@ func (q *Queue) collectResults(res chan workerResult, wg *sync.WaitGroup) error 
 	wg.Wait()
 	close(res)
 
-	var err error
-
 	for res := range res {
 		switch res.kind {
 		case success:
+			if q.errorCount > 0 {
+				q.errorCount = 0
+			}
 			status := q.status[res.sender]
 			status.increment(res.sent)
 			status.setTimeout(1 * time.Minute)
+			log.Debug().Str("sender", res.sender).Uint("sent", res.sent).Msg("send success")
 
 		case failure:
-			//err = res.Error
+			log.Error().Str("from", res.sender).Uint("sent", res.sent).Err(res.error).Msg("send failure")
 			q.failures = append(q.failures, res.receivers...)
+			q.errorCount++
+
+			if q.errorCount >= q.errorThreshold {
+				return errors.New("queue has errored too many times")
+			}
 		}
 	}
-
-	return err
+	return nil
 }
 
-func (q *Queue) saveFailures() error {
-	pwd, err := os.Getwd()
+func (q *Queue) saveFailures() (err error) {
+	if len(q.failures) == 0 {
+		return nil
+	}
+	var pwd string
+	pwd, err = os.Getwd()
 	if err != nil {
 		return err
 	}
 
 	filename := filepath.Join(pwd, "errored_receivers.csv")
-	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, os.ModePerm)
+	log.Info().Str("file", filename).Msg("saving failed receivers")
+	var file *os.File
+	file, err = os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, os.ModePerm)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() {
+		if err != nil {
+			log.Error().Err(err).Msg("could not save errors")
+		}
+		file.Close()
+	}()
 
-	return gocsv.MarshalFile(&q.failures, f)
+	err = gocsv.MarshalFile(&q.failures, file)
+
+	return
 }
 
 // Run initates the mail queue and performs all the specified
 // operations based off of the given queue configuration.
 func (q *Queue) Run() error {
 	wg := new(sync.WaitGroup)
-
-	receiverPtr := 0
+	var receiverPtr, senderPtr, skips int
 	for receiverPtr < len(q.receivers) {
-		senderPtr := 0
 		res := make(chan workerResult, q.workers)
 		for i := 0; i < int(q.workers); i++ {
 			if receiverPtr > len(q.receivers) {
@@ -158,14 +178,53 @@ func (q *Queue) Run() error {
 			sender := q.senders[senderPtr]
 			status := q.status[sender.Email]
 			if status.skip {
+				log.Warn().Msgf("skipping risky sender: %s", sender.Email)
+				time.Sleep(2 * time.Second)
+				senderPtr = (senderPtr + 1) % len(q.senders)
 				continue
 			}
 
 			if status.isTimedOut() {
+				dur := time.Until(*status.timeout)
+				log.Warn().
+					Str("sender", sender.Email).
+					Str("dur", fmt.Sprintf("%.2f min", dur.Minutes())).
+					Msgf("sender timed out")
+
+				skips++
+				if skips >= len(q.senders) {
+					log.Warn().
+						Str("dur", fmt.Sprintf("%.2f min", dur.Minutes())).
+						Msg("sleeping due to repeated skips")
+					time.Sleep(dur)
+					skips = 0
+				}
+				time.Sleep(2 * time.Second)
+
+				senderPtr = (senderPtr + 1) % len(q.senders)
 				continue
 			}
 
-			if !q.isTomorrow() && status.today > uint(q.perDay) {
+			if !q.isTomorrow() && status.today >= uint(q.perDay) {
+				status.setTimeout(24 * time.Hour)
+
+				dur := time.Until(*status.timeout)
+				log.Warn().
+					Str("sender", sender.Email).
+					Str("dur", fmt.Sprintf("%.2f min", dur.Minutes())).
+					Msgf("daily limit exceeded")
+
+				skips++
+				if skips >= len(q.senders) {
+					log.Warn().
+						Str("dur", fmt.Sprintf("%.2f min", dur.Minutes())).
+						Msg("sleeping due to repeated skips")
+					time.Sleep(dur)
+					skips = 0
+				}
+				time.Sleep(2 * time.Second)
+
+				senderPtr = (senderPtr + 1) % len(q.senders)
 				continue
 			}
 
@@ -199,5 +258,5 @@ func (q *Queue) Run() error {
 		}
 	}
 
-	return nil
+	return q.saveFailures()
 }

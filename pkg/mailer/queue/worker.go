@@ -22,6 +22,7 @@ import (
 
 	"github.com/abh1sheke/hermes-mailer/pkg/mailer"
 	"github.com/jordan-wright/email"
+	"github.com/rs/zerolog/log"
 )
 
 // resultKind represents the outcome of a result.
@@ -44,6 +45,7 @@ type workerResult struct {
 }
 
 func createEmails(task *task, from string) ([]*email.Email, error) {
+	log.Debug().Str("sender", task.sender.Email).Msg("creating emails")
 	emails := make([]*email.Email, 0, len(task.receivers))
 
 	for _, receiver := range task.receivers {
@@ -97,6 +99,11 @@ func createEmails(task *task, from string) ([]*email.Email, error) {
 }
 
 func worker(task *task, auth mailer.Auth, res chan workerResult, wg *sync.WaitGroup) {
+	log.Debug().
+		Str("sender", task.sender.Email).
+		Int("receivers", len(task.receivers)).
+		Msg("worker got task")
+
 	defer wg.Done()
 
 	var from string
@@ -108,15 +115,15 @@ func worker(task *task, auth mailer.Auth, res chan workerResult, wg *sync.WaitGr
 
 	emails, err := createEmails(task, from)
 	if err != nil {
-		res <- workerResult{kind: failure, error: err, receivers: task.receivers}
+		res <- workerResult{kind: failure, sender: task.sender.Email, error: err, receivers: task.receivers}
 		return
 	}
 
 	idx, err := mailer.SendEmailsTLS(task.sender, emails, task.host, auth)
 	if err != nil {
-		res <- workerResult{kind: failure, error: err, receivers: task.receivers[idx:]}
+		res <- workerResult{kind: failure, sender: task.sender.Email, error: err, receivers: task.receivers[idx:]}
 		return
 	}
 
-	res <- workerResult{kind: success}
+	res <- workerResult{kind: success, sender: task.sender.Email, sent: uint(len(task.receivers) - idx)}
 }

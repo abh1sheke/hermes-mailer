@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/jordan-wright/email"
+	"github.com/rs/zerolog/log"
 )
 
 // SendEmailsTLS sends a list of email messages, defined as
@@ -49,13 +50,15 @@ func SendEmailsTLS(sender *Sender, emails []*email.Email, host string, auth Auth
 	}
 
 	addr := fmt.Sprintf("%s:587", host)
+	log.Debug().Msgf("creating conn pool for: %s", sender.Email)
 	pool, err := email.NewPool(addr, len(emails), a)
 	if err != nil {
 		return 0, err
 	}
 
 	for i, email := range emails {
-		err := pool.Send(email, 10*time.Second)
+		log.Info().Str("from", sender.Email).Str("to", email.To[0]).Msg("sending email")
+		_ = pool.Send(email, 10*time.Second)
 		if err != nil {
 			return i, err
 		}
