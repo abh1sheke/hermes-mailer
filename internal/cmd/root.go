@@ -1,4 +1,4 @@
-// Copyright 2024 Abhisheke Acharya 
+// Copyright 2024 Abhisheke Acharya
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(send.Cmd)
 
-	rootCmd.PersistentFlags().Uint8P("log-level", "l", 4, "Sets the log level")
+	rootCmd.PersistentFlags().Uint8P("log-level", "l", 1, "Sets the log level")
 }
 
 // Execute runs the 'Root' cobra-cli command.
