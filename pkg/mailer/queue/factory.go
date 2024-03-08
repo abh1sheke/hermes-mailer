@@ -95,6 +95,8 @@ func defaultQueue() *Queue {
 		workers:   1,
 		start:     time.Now(),
 		status:    make(map[string]*status),
+    errorThreshold: 6,
+    errorCount: 0,
 	}
 }
 

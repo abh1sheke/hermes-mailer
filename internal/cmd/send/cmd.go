@@ -15,7 +15,11 @@
 package send
 
 import (
+	"strconv"
+
+	"github.com/abh1sheke/hermes-mailer/internal/logger"
 	"github.com/abh1sheke/hermes-mailer/pkg/mailer/queue"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
 
@@ -31,6 +35,12 @@ var Cmd = &cobra.Command{
 	Short:        "Send email messages from multiple senders",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		log := cmd.Parent().Flag("log-level").Value.String()
+		n, _ := strconv.ParseInt(log, 10, 8)
+		if err := logger.Init(zerolog.Level(n)); err != nil {
+			return err
+		}
+
 		q, err := queue.New(
 			senders,
 			receivers,

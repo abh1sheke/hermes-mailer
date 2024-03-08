@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/gocarina/gocsv"
+	"github.com/rs/zerolog/log"
 )
 
 // List is a convenience type that unmarshals a CSV string and converts it
@@ -41,20 +42,24 @@ func (l *List) UnmarshalCSV(csv string) error {
 
 // MarshalCSV is a helper method which marshals the data
 // from a List struct into a CSV string.
-func (l *List) MarshalCSV() string {
+func (l *List) MarshalCSV() (string, error) {
 	if l.data == nil {
-		return ""
+		return "", nil
 	}
 
 	builder := new(strings.Builder)
 	for i, v := range l.data {
-		builder.WriteString(v)
+		if _, err := builder.WriteString(v); err != nil {
+			return "", err
+		}
 		if i < len(l.data)-1 {
-			builder.WriteRune(';')
+			if _, err := builder.WriteRune(';'); err != nil {
+				return "", err
+			}
 		}
 	}
 
-	return builder.String()
+	return builder.String(), nil
 }
 
 // Data is a getter method for the underlying struct data.
@@ -94,22 +99,26 @@ func (v *Variables) UnmarshalCSV(csv string) error {
 
 // MarshalCSV is a helper method which marshals the data
 // from a Variables struct into a CSV string.
-func (v *Variables) MarshalCSV() string {
+func (v *Variables) MarshalCSV() (string, error) {
 	if v.data == nil {
-		return ""
+		return "", nil
 	}
 
 	builder := new(strings.Builder)
 	l := len(v.data) - 1
 	i := 0
 	for k, v := range v.data {
-		builder.WriteString(k + "=" + v)
+		if _, err := builder.WriteString(k + "=" + v); err != nil {
+			return "", err
+		}
 		if i < l {
-			builder.WriteRune(';')
+			if _, err := builder.WriteRune(';'); err != nil {
+				return "", err
+			}
 		}
 	}
 
-	return builder.String()
+	return builder.String(), nil
 }
 
 // Data is a getter method for the underlying struct data.
@@ -147,6 +156,7 @@ func ReadFile[T CSVData](file string) ([]*T, error) {
 	}
 	defer f.Close()
 
+	log.Debug().Str("file", file).Msg("reading csv file...")
 	var data []*T
 	if err := gocsv.UnmarshalFile(f, &data); err != nil {
 		return nil, err
