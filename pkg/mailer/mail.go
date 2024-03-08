@@ -58,7 +58,7 @@ func SendEmailsTLS(sender *Sender, emails []*email.Email, host string, auth Auth
 
 	for i, email := range emails {
 		log.Info().Str("from", sender.Email).Str("to", email.To[0]).Msg("sending email")
-		_ = pool.Send(email, 10*time.Second)
+		err := pool.Send(email, 10*time.Second)
 		if err != nil {
 			return i, err
 		}
