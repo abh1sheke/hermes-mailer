@@ -12,26 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cmd
+package queue
 
-import "github.com/spf13/cobra"
-import "github.com/abh1sheke/hermes-mailer/internal/cmd/send"
+import (
+	"testing"
 
-var rootCmd = &cobra.Command{
-	Use:   "hermes",
-	Short: "A command-line tool for various email operations.",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return cmd.Help()
-	},
-}
+	"github.com/gocarina/gocsv"
+)
 
-func init() {
-	rootCmd.AddCommand(send.Cmd)
+func TestStats(t *testing.T) {
+	s := &Stats{
+		timeout: nil,
+		skip:    false,
+		today:   10,
+		Sender:  "random.email@provider.com",
+		Total:   10,
+		Failed:  7,
+		Bounced: 3,
+	}
 
-	rootCmd.PersistentFlags().Uint8P("log-level", "l", 1, "Sets the log level")
-}
+	csv, err := gocsv.MarshalString([]*Stats{s})
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// Execute runs the 'Root' cobra-cli command.
-func Execute() error {
-	return rootCmd.Execute()
+	expected := "sender,total,failed,bounced\nrandom.email@provider.com,10,7,3\n"
+	if csv != expected {
+		t.Fatalf("expected:\n%s\ngot:\n%s", expected, csv)
+	}
 }

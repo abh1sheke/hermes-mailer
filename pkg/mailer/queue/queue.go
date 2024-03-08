@@ -35,37 +35,6 @@ type task struct {
 	text, html                 *template.Template
 }
 
-type status struct {
-	timeout      *time.Time
-	total, today uint
-	skip         bool
-}
-
-func (s *status) isTimedOut() bool {
-	if s.timeout == nil {
-		return false
-	}
-
-	now := time.Now()
-
-	if now.Unix() > s.timeout.Unix() {
-		s.timeout = nil
-		return false
-	}
-
-	return true
-}
-
-func (s *status) setTimeout(d time.Duration) {
-	t := time.Now().Add(d)
-	s.timeout = &t
-}
-
-func (s *status) increment(num uint) {
-	s.today += num
-	s.total += num
-}
-
 // Queue represents a worker queue performing email send operations.
 type Queue struct {
 	senders                     []*mailer.Sender
@@ -74,7 +43,7 @@ type Queue struct {
 	text, html                  *template.Template
 	perMinute, perDay           uint16
 	start                       time.Time
-	status                      map[string]*status
+	status                      map[string]*Stats
 	workers                     uint8
 	auth                        mailer.Auth
 	failures                    []*mailer.Receiver
@@ -123,6 +92,8 @@ func (q *Queue) collectResults(res chan workerResult, wg *sync.WaitGroup) error 
 
 		case failure:
 			log.Error().Str("from", res.sender).Uint("sent", res.sent).Err(res.error).Msg("send failure")
+			status := q.status[res.sender]
+			status.incrementFailed(uint(len(res.receivers)))
 			q.failures = append(q.failures, res.receivers...)
 			q.errorCount++
 
@@ -134,8 +105,8 @@ func (q *Queue) collectResults(res chan workerResult, wg *sync.WaitGroup) error 
 	return nil
 }
 
-func (q *Queue) saveFailures() (err error) {
-	if len(q.failures) == 0 {
+func SaveResults[T mailer.CSVData](data []*T, filename string) (err error) {
+	if len(data) == 0 {
 		return nil
 	}
 	var pwd string
@@ -144,21 +115,22 @@ func (q *Queue) saveFailures() (err error) {
 		return err
 	}
 
-	filename := filepath.Join(pwd, "errored_receivers.csv")
-	log.Info().Str("file", filename).Msg("saving failed receivers")
+	filename = filepath.Join(pwd, filename)
+	log.Info().Str("file", filename).Msg("saving results")
 	var file *os.File
 	file, err = os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, os.ModePerm)
 	if err != nil {
 		return err
 	}
+
 	defer func() {
 		if err != nil {
-			log.Error().Err(err).Msg("could not save errors")
+			log.Error().Str("file", filename).Err(err).Msg("could not save file")
 		}
 		file.Close()
 	}()
 
-	err = gocsv.MarshalFile(&q.failures, file)
+	err = gocsv.MarshalFile(data, file)
 
 	return
 }
@@ -254,9 +226,23 @@ func (q *Queue) Run() error {
 		}
 
 		if err := q.collectResults(res, wg); err != nil {
-			return errors.Join(err, q.saveFailures())
+			return errors.Join(err,
+				SaveResults[mailer.Receiver](q.receivers, "errored_receivers.csv"),
+				SaveResults[Stats](mapToSlice(q.status), "stats.csv"),
+			)
 		}
 	}
 
-	return q.saveFailures()
+	return errors.Join(
+		SaveResults[mailer.Receiver](q.receivers, "errored_receivers.csv"),
+		SaveResults[Stats](mapToSlice(q.status), "stats.csv"),
+	)
+}
+
+func mapToSlice(m map[string]*Stats) []*Stats {
+	s := make([]*Stats, 0, len(m))
+	for _, v := range m {
+		s = append(s, v)
+	}
+	return s
 }

@@ -90,13 +90,13 @@ func WithRateDaily(rate uint16) OptFunc {
 
 func defaultQueue() *Queue {
 	return &Queue{
-		perDay:    100,
-		perMinute: 1,
-		workers:   1,
-		start:     time.Now(),
-		status:    make(map[string]*status),
-    errorThreshold: 6,
-    errorCount: 0,
+		perDay:         100,
+		perMinute:      2,
+		workers:        2,
+		start:          time.Now(),
+		status:         make(map[string]*Stats),
+		errorThreshold: 6,
+		errorCount:     0,
 	}
 }
 
@@ -112,7 +112,7 @@ func New(senders, receivers, subject, host, textFile string, opts ...OptFunc) (*
 	q.host = host
 
 	for _, sender := range q.senders {
-		q.status[sender.Email] = &status{}
+		q.status[sender.Email] = &Stats{Sender: sender.Email}
 	}
 
 	b, err := os.ReadFile(textFile)
